@@ -1,0 +1,378 @@
+rules_version = '2';
+
+// Common Ground — security rules.
+//
+// The two hard guarantees live HERE, not in the UI:
+//   1. Contact details (members/{uid}/private/contact) are readable only by
+//      their owner or a member with an *accepted* connection. Unconnected
+//      clients get PERMISSION_DENIED — the data never leaves the server.
+//   2. Nothing at all is readable without a signed-in Firebase Auth user.
+//
+// The DM-scope toggle (config/app.dmRequiresConnection) is also enforced
+// here: when true, thread creation AND message sends require an accepted
+// connection. Flip the one field, enforcement changes everywhere.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Banned members keep read access but can no longer create content.
+    function notBanned() {
+      return !exists(/databases/$(database)/documents/banned/$(request.auth.uid));
+    }
+
+    // Canonical pair id — must match pairId() in src/lib/utils.ts.
+    function pid(a, b) {
+      return a < b ? a + '_' + b : b + '_' + a;
+    }
+
+    function connectionWith(other) {
+      return get(/databases/$(database)/documents/connections/$(pid(request.auth.uid, other)));
+    }
+
+    function isConnectedTo(other) {
+      return exists(/databases/$(database)/documents/connections/$(pid(request.auth.uid, other)))
+        && connectionWith(other).data.status == 'accepted';
+    }
+
+    function dmRequiresConnection() {
+      return get(/databases/$(database)/documents/config/app).data.dmRequiresConnection == true;
+    }
+
+    function onlyKeys(allowed) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+    }
+
+    // Groups a member may pick for themselves. speaker / panelist /
+    // startup-pitch / team are event-role tags — only an admin (via the
+    // Admin SDK, which bypasses these rules) may assign those.
+    // Keep in sync with SELF_SERVE_GROUPS in src/lib/types.ts.
+    function selfServeGroups() {
+      return ['founder', 'executive', 'nonprofit', 'church', 'investor', 'corporate'];
+    }
+
+    // An optional string field (e.g. an uploaded image's download URL): absent,
+    // or a string within a sane length. The image bytes themselves live in
+    // Cloud Storage and are gated by storage.rules; here we only guard the
+    // pointer so a member can't stuff arbitrary data into their public doc.
+    function okOptionalUrl(data, key) {
+      return !(key in data) || (data[key] is string && data[key].size() <= 2000);
+    }
+
+    // An optional free-text public profile field: absent, or a string no longer
+    // than `max`. Length caps kept in sync with MAX_* in src/lib/types.ts.
+    function okOptionalText(data, key, max) {
+      return !(key in data) || (data[key] is string && data[key].size() <= max);
+    }
+
+    /* ------------------------------ members ------------------------------ */
+
+    match /members/{uid} {
+      // Directory: public profile fields visible to any signed-in member.
+      allow read: if signedIn();
+
+      // Profiles are created only server-side (the /api/onboarding route, via
+      // the Admin SDK, which bypasses these rules). Routing brand-new self-
+      // signups through the server is what lets the per-event "Allow sign-ups"
+      // gate be enforced tamper-proof — a client can't self-create to bypass
+      // it. Admin-added members already have a profile from the import path.
+      allow create: if isAdmin();
+      // Owner may edit their public fields and their own uploaded image URLs
+      // (the bytes are gated separately by storage.rules). They may add/
+      // remove self-serve groups freely but can't grant themselves an
+      // admin-assigned tag — any newly-added group must be self-serve; tags
+      // an admin already gave them just carry over untouched.
+      allow update: if (signedIn() && request.auth.uid == uid
+        && onlyKeys(['name', 'title', 'company', 'location', 'about', 'interests', 'groups', 'nameLower', 'companyLower', 'photoUrl', 'coverUrl', 'updatedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        // Guarded by 'groups' in ...: a pre-migration profile has no groups
+        // field at all yet, and an unrelated edit (e.g. just a new photo)
+        // must still go through without being forced to backfill it.
+        && (!('groups' in request.resource.data) || (
+             request.resource.data.groups is list
+             && request.resource.data.groups.size() <= 10
+             && request.resource.data.groups.removeAll(resource.data.get('groups', [])).hasOnly(selfServeGroups())
+           ))
+        && okOptionalUrl(request.resource.data, 'photoUrl')
+        && okOptionalUrl(request.resource.data, 'coverUrl')
+        && okOptionalText(request.resource.data, 'location', 120)
+        && okOptionalText(request.resource.data, 'about', 1500)
+        && okOptionalText(request.resource.data, 'interests', 1500))
+        // Event approval tags: ONLY admins may grant/revoke event access —
+        // members cannot self-approve (the owner key-set above excludes
+        // 'events', and create's hasOnly() rejects it too).
+        || (isAdmin() && onlyKeys(['events']));
+      allow delete: if isAdmin();
+
+      // THE CONTACT GATE. Email / phone / LinkedIn live only in this doc.
+      match /private/{docId} {
+        allow read: if signedIn()
+          && (request.auth.uid == uid || isConnectedTo(uid));
+        allow write: if signedIn() && request.auth.uid == uid;
+        allow delete: if isAdmin();
+      }
+    }
+
+    /* ---------------------------- connections ---------------------------- */
+
+    match /connections/{connId} {
+      // Only the two parties can even see the connection doc.
+      // get: parties come from the id (canonical pid(a, b) = 'a_b'), not
+      // resource.data — the profile page listens to this doc BEFORE it
+      // exists, and a rule that touches resource.data errors on a missing
+      // doc, killing the listener so it never sees the doc get created.
+      // list: must use resource.data — id-based rules aren't provable from
+      // query filters, but `where users array-contains me` proves this one.
+      allow get: if signedIn() && request.auth.uid in connId.split('_');
+      allow list: if signedIn() && request.auth.uid in resource.data.users;
+
+      // Request: doc id must be the canonical sorted pair containing me.
+      allow create: if signedIn() && notBanned()
+        && request.resource.data.users.size() == 2
+        && request.auth.uid in request.resource.data.users
+        && request.resource.data.users[0] != request.resource.data.users[1]
+        && connId == pid(request.resource.data.users[0], request.resource.data.users[1])
+        && request.resource.data.requestedBy == request.auth.uid
+        && request.resource.data.status == 'pending';
+
+      // Accept: only the *recipient* can flip pending → accepted.
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.users
+        && resource.data.status == 'pending'
+        && resource.data.requestedBy != request.auth.uid
+        && onlyKeys(['status'])
+        && request.resource.data.status == 'accepted';
+
+      // Decline / cancel / disconnect: either party, any time. Deleting the
+      // doc immediately re-locks contact details in both directions.
+      allow delete: if isAdmin()
+        || (signedIn() && request.auth.uid in resource.data.users);
+    }
+
+    /* ------------------------------ threads ------------------------------ */
+
+    match /threads/{threadId} {
+      function isParticipant() {
+        return request.auth.uid in resource.data.participants;
+      }
+      function otherParticipant(participants) {
+        return participants[0] == request.auth.uid ? participants[1] : participants[0];
+      }
+      function dmAllowedWith(other) {
+        return !dmRequiresConnection() || isConnectedTo(other);
+      }
+
+      // Same get/list split as /connections: the chat page listens to the
+      // thread doc before the first message creates it (id-based get), while
+      // the inbox queries `where participants array-contains me` (list).
+      allow get: if signedIn() && request.auth.uid in threadId.split('_');
+      allow list: if signedIn() && isParticipant();
+
+      allow create: if signedIn() && notBanned()
+        && request.resource.data.participants.size() == 2
+        && request.auth.uid in request.resource.data.participants
+        && threadId == pid(request.resource.data.participants[0], request.resource.data.participants[1])
+        && request.resource.data.lastSenderId == request.auth.uid
+        && dmAllowedWith(otherParticipant(request.resource.data.participants));
+
+      // Participants may update the preview fields and their own read marker.
+      allow update: if signedIn() && isParticipant()
+        && onlyKeys(['lastMessage', 'lastSenderId', 'lastMessageAt', 'reads', 'participantNames'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastSenderId'])
+            || request.resource.data.lastSenderId == request.auth.uid);
+
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        // Participants are derivable from the thread id alone — it's the
+        // canonical pid(a, b) = 'a_b' (uids never contain '_', same assumption
+        // pid() already relies on). Deriving them here, rather than get()-ing
+        // the thread doc, is what lets the FIRST message send: the client
+        // creates the thread and its first message in ONE batch, and a rule
+        // get() can't see the sibling thread write until the batch commits, so
+        // reading participants off the (not-yet-committed) doc would deny it.
+        function threadParticipants() {
+          return threadId.split('_');
+        }
+        allow read: if signedIn() && request.auth.uid in threadParticipants();
+        allow create: if signedIn() && notBanned()
+          && request.auth.uid in threadParticipants()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 4000
+          && dmAllowedWith(otherParticipant(threadParticipants()));
+        allow delete: if isAdmin();
+      }
+    }
+
+    /* ------------------------------- posts ------------------------------- */
+
+    match /posts/{postId} {
+      allow read: if signedIn();
+
+      // Members may only post into events they've been approved for.
+      function canPostInEvent(eventId) {
+        return isAdmin()
+          || eventId in get(/databases/$(database)/documents/members/$(request.auth.uid)).data.get('events', []);
+      }
+
+      allow create: if signedIn() && notBanned()
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.eventId is string
+        && canPostInEvent(request.resource.data.eventId)
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 100
+        && request.resource.data.body.size() <= 1000
+        && okOptionalUrl(request.resource.data, 'imageUrl')
+        && request.resource.data.reactedBy == []
+        && request.resource.data.reactionCount == 0
+        && request.resource.data.commentCount == 0;
+
+      // Author edits content; anyone signed-in may maintain the counters:
+      //  - reactions: may only add/remove *their own* uid, and the count must
+      //    equal the resulting list length;
+      //  - commentCount: adjusted alongside comment create/delete.
+      allow update: if signedIn() && (
+        (request.auth.uid == resource.data.authorId
+          && onlyKeys(['title', 'body', 'link', 'topic', 'imageUrl'])
+          && okOptionalUrl(request.resource.data, 'imageUrl'))
+        ||
+        (onlyKeys(['reactedBy', 'reactionCount'])
+          && request.resource.data.reactionCount == request.resource.data.reactedBy.size()
+          && (
+            // reacted: exactly my uid added, nothing removed
+            (request.resource.data.reactedBy.toSet().difference(resource.data.reactedBy.toSet()).hasOnly([request.auth.uid])
+              && request.resource.data.reactedBy.size() == resource.data.reactedBy.size() + 1
+              && resource.data.reactedBy.toSet().difference(request.resource.data.reactedBy.toSet()).size() == 0)
+            ||
+            // un-reacted: exactly my uid removed, nothing added
+            (resource.data.reactedBy.toSet().difference(request.resource.data.reactedBy.toSet()).hasOnly([request.auth.uid])
+              && request.resource.data.reactedBy.size() == resource.data.reactedBy.size() - 1
+              && request.resource.data.reactedBy.toSet().difference(resource.data.reactedBy.toSet()).size() == 0)
+          ))
+        ||
+        (onlyKeys(['commentCount'])
+          && request.resource.data.commentCount >= 0)
+      );
+
+      allow delete: if isAdmin() || (signedIn() && request.auth.uid == resource.data.authorId);
+
+      match /comments/{commentId} {
+        allow read: if signedIn();
+        allow create: if signedIn() && notBanned()
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 1000;
+        allow delete: if isAdmin()
+          || (signedIn() && request.auth.uid == resource.data.authorId);
+      }
+    }
+
+    /* ------------------------------- rooms ------------------------------- */
+
+    match /rooms/{roomId} {
+      // Staged rooms: `hidden: true` keeps a room invisible to members until
+      // an admin reveals it. Same get/list split as /connections:
+      //  - get reads the field via .get() so legacy docs (no hidden field)
+      //    stay readable. A get on a DELETED room now denies instead of
+      //    returning not-exists — the room page treats that error as closed.
+      //  - list is only provable from a `where hidden == false` filter, which
+      //    the lobby query sends (legacy docs are backfilled by
+      //    `npm run seed -- --backfill-hidden`). Admins may query unfiltered.
+      allow get: if isAdmin()
+        || (signedIn() && resource.data.get('hidden', false) != true);
+      allow list: if isAdmin()
+        || (signedIn() && resource.data.hidden == false);
+      allow create, update, delete: if isAdmin();
+
+      // Presence: each member manages only their own participant doc.
+      match /participants/{uid} {
+        allow read: if signedIn();
+        allow create, update: if signedIn() && request.auth.uid == uid && notBanned();
+        allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      }
+
+      // RSVPs ("I'll be attending") — same shape as presence: each member
+      // manages only their own doc, so counts can't be inflated.
+      match /rsvps/{uid} {
+        allow read: if signedIn();
+        allow create, update: if signedIn() && request.auth.uid == uid && notBanned();
+        allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      }
+
+      match /messages/{messageId} {
+        allow read: if signedIn();
+        allow create: if signedIn() && notBanned()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 4000;
+        allow delete: if isAdmin()
+          || (signedIn() && request.auth.uid == resource.data.senderId);
+      }
+    }
+
+    // Collection-group read for lobby occupancy counts (rooms/*/participants).
+    match /{path=**}/participants/{uid} {
+      allow read: if signedIn();
+    }
+
+    // Collection-group read for lobby RSVP counts (rooms/*/rsvps).
+    match /{path=**}/rsvps/{uid} {
+      allow read: if signedIn();
+    }
+
+    /* ------------------------------ reports ------------------------------ */
+
+    match /reports/{reportId} {
+      allow create: if signedIn()
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.status == 'open';
+      allow read, update, delete: if isAdmin();
+    }
+
+    /* --------------------------- admin & config --------------------------- */
+
+    match /admins/{uid} {
+      // Members may check only their own admin status; docs are created via
+      // the seed script / console, never from the client.
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    match /banned/{uid} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /config/{docId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /events/{eventId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // Admin media library. Managed entirely through /api/admin/media (Admin SDK,
+    // which bypasses these rules); no client ever reads or writes it directly.
+    // The reusable image URLs it mints are stored on the docs that use them.
+    match /media/{id} {
+      allow read, write: if false;
+    }
+  }
+}

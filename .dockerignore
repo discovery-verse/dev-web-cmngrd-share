@@ -1,0 +1,13 @@
+.git
+.gitignore
+node_modules
+.next
+npm-debug.log
+*.log
+.env*
+!.env.local.example
+.DS_Store
+tsconfig.tsbuildinfo
+service-account*.json
+firestore-debug.log
+.firebase

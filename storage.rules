@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// Common Ground — Cloud Storage rules.
+//
+// The bucket (digital-mission-ventures.firebasestorage.app) is SHARED with the
+// sibling apps in this project, so everything Common Ground owns lives under a
+// single `cmngrd/` prefix — mirroring the named `cmngrd-db` Firestore database.
+//
+// Admin status is an `admins/{uid}` Firestore doc, which Storage rules cannot
+// read. So the only privileged uploads (room covers) go through the Admin SDK
+// on the server (/api/admin/rooms), which bypasses these rules entirely. Here
+// we only need to gate the self-service, user-owned uploads.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // A well-formed image under a size ceiling. Uploads are downscaled
+    // client-side (see src/lib/upload.ts); this is the server-side backstop.
+    function isImageUnder(maxBytes) {
+      return request.resource.size < maxBytes
+        && request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
+    }
+
+    // Everything a member uploads for themselves — avatar, cover, idea images —
+    // lives under their own uid, so ownership is provable from the path alone.
+    match /cmngrd/u/{uid}/{allPaths=**} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+        && request.auth.uid == uid
+        && isImageUnder(8 * 1024 * 1024);
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Room covers: readable by any member; writes only via the server (Admin
+    // SDK). Client writes are denied by omission — no allow rule matches.
+    match /cmngrd/rooms/{allPaths=**} {
+      allow read: if signedIn();
+    }
+  }
+}

@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+build/
+.env*
+!.env.local.example
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+.firebase/
+service-account*.json
+firestore-debug.log
+*-debug.log

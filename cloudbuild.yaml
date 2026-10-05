@@ -1,0 +1,79 @@
+substitutions:
+  # Set these on the Cloud Build trigger. Do not commit real values.
+  # Firebase console → Project settings → Your apps.
+  _NEXT_PUBLIC_FIREBASE_API_KEY: ''
+  _NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ''
+  _NEXT_PUBLIC_FIREBASE_PROJECT_ID: ''
+  _NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ''
+  _NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ''
+  _NEXT_PUBLIC_FIREBASE_APP_ID: ''
+  # Leave empty to use the (default) Firestore database.
+  _NEXT_PUBLIC_FIRESTORE_DB_ID: ''
+
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share:$COMMIT_SHA'
+      - '-t'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share:latest'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY=${_NEXT_PUBLIC_FIREBASE_API_KEY}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=${_NEXT_PUBLIC_FIREBASE_PROJECT_ID}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_APP_ID=${_NEXT_PUBLIC_FIREBASE_APP_ID}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIRESTORE_DB_ID=${_NEXT_PUBLIC_FIRESTORE_DB_ID}'
+      - '.'
+
+  # Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'dev-web-cmngrd-share'
+      - '--image'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share:$COMMIT_SHA'
+      - '--region'
+      - 'asia-southeast1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      # Runtime env for the /higherground admin API (firebase-admin, named DB).
+      - '--set-env-vars'
+      - 'FIRESTORE_DATABASE_ID=${_NEXT_PUBLIC_FIRESTORE_DB_ID}'
+
+  # Deploy Firebase Hosting (proxies traffic to Cloud Run)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+        apt-get install -y -q nodejs
+        npm install -g firebase-tools
+        firebase -c firebase.prod.json deploy --only hosting --project "$PROJECT_ID" --non-interactive
+
+images:
+  - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share:$COMMIT_SHA'
+  - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

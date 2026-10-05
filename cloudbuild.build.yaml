@@ -1,0 +1,44 @@
+# Build + push only (no deploy steps) — used for manual deploys where you run
+# `gcloud run deploy` / `firebase deploy` yourself with your own credentials,
+# so the Cloud Build service account only needs roles/cloudbuild.builds.builder.
+#
+# cloudbuild.yaml (the full pipeline: build, push, deploy Cloud Run, deploy
+# Hosting) is for later, once you wire up a CI trigger and grant the build
+# service account the broader roles it needs (run.admin, iam.serviceAccountUser,
+# firebasehosting.admin).
+substitutions:
+  # Set these on the Cloud Build trigger. Do not commit real values.
+  _NEXT_PUBLIC_FIREBASE_API_KEY: ''
+  _NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ''
+  _NEXT_PUBLIC_FIREBASE_PROJECT_ID: ''
+  _NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ''
+  _NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ''
+  _NEXT_PUBLIC_FIREBASE_APP_ID: ''
+  # Leave empty to use the (default) Firestore database.
+  _NEXT_PUBLIC_FIRESTORE_DB_ID: ''
+
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share:latest'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_API_KEY=${_NEXT_PUBLIC_FIREBASE_API_KEY}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_PROJECT_ID=${_NEXT_PUBLIC_FIREBASE_PROJECT_ID}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIREBASE_APP_ID=${_NEXT_PUBLIC_FIREBASE_APP_ID}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_FIRESTORE_DB_ID=${_NEXT_PUBLIC_FIRESTORE_DB_ID}'
+      - '.'
+images:
+  - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share:latest'
+options:
+  logging: CLOUD_LOGGING_ONLY

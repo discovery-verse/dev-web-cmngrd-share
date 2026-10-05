@@ -1,0 +1,261 @@
+@import "tailwindcss";
+
+/*
+ * Warm-professional palette: cream paper, deep warm ink, clay primary,
+ * sage + amber support. Card-based like Padlet, dialled toward "credible
+ * enough for a C-suite exec".
+ */
+@theme {
+  --color-paper: #faf7f2;
+  --color-surface: #ffffff;
+  --color-ink: #2b2420;
+  --color-soft: #6f6359;
+  --color-faint: #a3968a;
+  --color-line: #eae2d7;
+
+  --color-clay: #a8512e;
+  --color-clay-deep: #8c4023;
+  --color-clay-soft: #f7e9e0;
+
+  --color-sage: #5c7b66;
+  --color-sage-soft: #e9f0ea;
+  --color-amber: #b97a24;
+  --color-amber-soft: #f9efdd;
+  --color-sky: #4a6f8e;
+  --color-sky-soft: #e7eef4;
+  --color-plum: #7b5a75;
+  --color-plum-soft: #f2eaf1;
+  --color-teal: #3d7a6e;
+  --color-teal-soft: #e6f0ee;
+  --color-rose: #9c4568;
+  --color-rose-soft: #f6e8ee;
+  --color-violet: #6656a3;
+  --color-violet-soft: #ece9f5;
+  --color-slate: #51606e;
+  --color-slate-soft: #e8edf1;
+
+  --color-danger: #a83a2e;
+  --color-danger-soft: #f9e6e3;
+
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+
+  --radius-card: 1rem;
+
+  --shadow-card: 0 1px 2px rgb(43 36 32 / 0.06), 0 4px 12px rgb(43 36 32 / 0.05);
+  --shadow-raised: 0 2px 6px rgb(43 36 32 / 0.08), 0 10px 24px rgb(43 36 32 / 0.08);
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* iOS standalone safe areas */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: var(--color-clay-soft);
+}
+
+/*
+ * Rendered event-info content (see <RichContent>). Scoped, self-contained prose
+ * styles so we don't need the Tailwind typography plugin. Tuned to the warm
+ * palette above.
+ */
+.rich {
+  color: var(--color-ink);
+  font-size: 15px;
+  line-height: 1.65;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.rich > :first-child {
+  margin-top: 0;
+}
+.rich > :last-child {
+  margin-bottom: 0;
+}
+.rich h1,
+.rich h2,
+.rich h3,
+.rich h4 {
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--color-ink);
+  scroll-margin-top: 4rem;
+}
+.rich h1 {
+  font-size: 1.5rem;
+  margin: 1.6rem 0 0.75rem;
+}
+.rich h2 {
+  font-size: 1.2rem;
+  margin: 1.5rem 0 0.6rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--color-line);
+}
+.rich h3 {
+  font-size: 1.02rem;
+  margin: 1.2rem 0 0.45rem;
+}
+.rich h4 {
+  font-size: 0.95rem;
+  margin: 1rem 0 0.4rem;
+  color: var(--color-soft);
+}
+.rich p {
+  margin: 0.7rem 0;
+}
+.rich a {
+  color: var(--color-clay);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rich a:hover {
+  color: var(--color-clay-deep);
+}
+.rich strong {
+  font-weight: 700;
+}
+.rich ul,
+.rich ol {
+  margin: 0.7rem 0;
+  padding-left: 1.35rem;
+}
+.rich ul {
+  list-style: disc;
+}
+.rich ol {
+  list-style: decimal;
+}
+.rich li {
+  margin: 0.3rem 0;
+}
+.rich li::marker {
+  color: var(--color-faint);
+}
+.rich blockquote {
+  margin: 0.9rem 0;
+  padding: 0.4rem 0 0.4rem 1rem;
+  border-left: 3px solid var(--color-clay-soft);
+  color: var(--color-soft);
+}
+.rich hr {
+  margin: 1.5rem 0;
+  border: 0;
+  border-top: 1px solid var(--color-line);
+}
+.rich code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  background: var(--color-line);
+  padding: 0.1em 0.35em;
+  border-radius: 0.35rem;
+}
+.rich pre {
+  margin: 0.9rem 0;
+  padding: 0.9rem 1rem;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  border-radius: var(--radius-card);
+  overflow-x: auto;
+}
+.rich pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+.rich img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-card);
+  margin: 0.9rem 0;
+}
+/* Tables scroll horizontally on their own so the page never does. */
+.rich .table-wrap {
+  overflow-x: auto;
+  margin: 0.9rem 0;
+}
+.rich table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.rich th,
+.rich td {
+  border: 1px solid var(--color-line);
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.rich th {
+  background: var(--color-paper);
+  font-weight: 700;
+}
+.rich tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--color-paper) 55%, transparent);
+}
+
+/*
+ * Periodic "look here" treatment for a primary call-to-action: a light sweep
+ * across the button plus a soft glow, firing briefly every few seconds so it
+ * nudges without nagging. Static for users who prefer reduced motion.
+ */
+.attention-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.attention-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 25%,
+    rgb(255 255 255 / 0.45) 50%,
+    transparent 75%
+  );
+  transform: translateX(-150%);
+  animation: shimmer-sweep 6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes shimmer-sweep {
+  0% { transform: translateX(-150%); }
+  14% { transform: translateX(150%); }
+  100% { transform: translateX(150%); }
+}
+.attention-shimmer {
+  animation: attention-glow 6s ease-in-out infinite;
+}
+@keyframes attention-glow {
+  0%, 16%, 100% { box-shadow: var(--shadow-raised); }
+  7% { box-shadow: 0 0 0 5px rgb(168 81 46 / 0.22), var(--shadow-raised); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .attention-shimmer,
+  .attention-shimmer::after {
+    animation: none;
+  }
+}

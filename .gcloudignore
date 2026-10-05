@@ -1,0 +1,11 @@
+# Keep the Cloud Build upload small — the image is built from source in the repo.
+.git
+.gitignore
+node_modules
+.next
+npm-debug.log
+*.log
+.env.local
+.DS_Store
+tsconfig.tsbuildinfo
+service-account*.json
