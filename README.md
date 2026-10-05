@@ -13,6 +13,19 @@ through Resend or SendGrid — is in [SETUP.md](SETUP.md).
 Firebase (Auth email-link + Firestore with security rules) · standalone output
 for Cloud Run behind Firebase Hosting.
 
+## Demo
+
+The screens below are the local demo (`npm run demo:dev` after `npm run demo:emulators` and `npm run demo:seed`). The people, posts, and rooms are fictional sample data. This repository does not store member or admin records.
+
+<p>
+  <img src="docs/screenshots/signin.png" alt="Common Ground sign-in" width="220" />
+  <img src="docs/screenshots/people.png" alt="People directory at the Summit event" width="220" />
+  <img src="docs/screenshots/board.png" alt="Idea board" width="220" />
+  <img src="docs/screenshots/rooms.png" alt="Discussion rooms" width="220" />
+</p>
+
+<img src="docs/screenshots/higherground.png" alt="Higher Ground admin dashboard" width="720" />
+
 ## Features
 
 | # | Feature | Where |
