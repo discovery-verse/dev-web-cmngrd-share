@@ -239,3 +239,9 @@ config/app                       { dmRequiresConnection }
 - Deferred (per spec): ticketing/payments, agenda, calls, group chats outside
   rooms, public pages. Also deferred: push notifications, email digests,
   avatars/photo upload (data minimalism), rate limiting.
+
+## Creator
+
+Glenn built this template. He runs [Zavior](https://zavior.ai/). He also serves on the boards of SGDCC Foundation and IIPCC Singapore, the RegTech subcommittee of the Singapore FinTech Association, and the council of the Singapore AI Association.
+
+If you want to talk, email [discoveryversemedia@gmail.com](mailto:discoveryversemedia@gmail.com). More is on [LinkedIn](https://www.linkedin.com/in/glenntwh/).
