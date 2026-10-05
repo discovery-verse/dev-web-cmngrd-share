@@ -9,6 +9,12 @@ records, and no Firebase project credentials. Connect your own empty project
 before anyone can sign in. Host setup — database, Higher Ground admin, and mail
 through Resend or SendGrid — is in [SETUP.md](SETUP.md).
 
+## Creator
+
+Glenn built this template. He runs [Zavior](https://zavior.ai/). He also serves on the boards of SGDCC Foundation and IIPCC Singapore, the RegTech subcommittee of the Singapore FinTech Association, and the council of the Singapore AI Association.
+
+If you want to talk, email [discoveryversemedia@gmail.com](mailto:discoveryversemedia@gmail.com). More is on [LinkedIn](https://www.linkedin.com/in/glenntwh/).
+
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind 4 ·
 Firebase (Auth email-link + Firestore with security rules) · standalone output
 for Cloud Run behind Firebase Hosting.

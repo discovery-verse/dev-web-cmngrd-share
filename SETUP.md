@@ -11,6 +11,8 @@ Firestore. It does not add a Supabase client to the app.
 
 Do not commit `.env.local`, service-account JSON, or provider API keys.
 
+Glenn built this template. He runs [Zavior](https://zavior.ai/). He also serves on the boards of SGDCC Foundation and IIPCC Singapore, the RegTech subcommittee of the Singapore FinTech Association, and the council of the Singapore AI Association. Questions: [discoveryversemedia@gmail.com](mailto:discoveryversemedia@gmail.com). More on [LinkedIn](https://www.linkedin.com/in/glenntwh/).
+
 ## 1. Add the database (Firestore)
 
 The running app uses this path.
