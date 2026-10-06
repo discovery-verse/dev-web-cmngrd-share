@@ -1,4 +1,4 @@
-# Common Ground — dev-web-cmngrd-share
+# Common Ground — web-app-cmngrd
 
 A mobile-first PWA that is the digital home for a faith-in-the-marketplace community:
 a live-conference companion (find people, spark conversations, hop discussion rooms)
@@ -184,7 +184,7 @@ Regenerate icons with `python3 scripts/generate-icons.py`.
 
 `cloudbuild.yaml` is a template. Set the Firebase web config as Cloud Build
 substitutions on your own project. The image and Cloud Run service are named
-`dev-web-cmngrd-share`. Do not put API keys in the committed file.
+`web-app-cmngrd`. Do not put API keys in the committed file.
 
 **Image hosting (Cloud Storage).** User images (avatars, profile covers, idea
 images) upload straight from the browser. Admin media-library and room-cover

@@ -16,9 +16,9 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share:$COMMIT_SHA'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/web-app-cmngrd:$COMMIT_SHA'
       - '-t'
-      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share:latest'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/web-app-cmngrd:latest'
       - '--build-arg'
       - 'NEXT_PUBLIC_FIREBASE_API_KEY=${_NEXT_PUBLIC_FIREBASE_API_KEY}'
       - '--build-arg'
@@ -40,7 +40,7 @@ steps:
     args:
       - 'push'
       - '--all-tags'
-      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/web-app-cmngrd'
 
   # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -48,9 +48,9 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'dev-web-cmngrd-share'
+      - 'web-app-cmngrd'
       - '--image'
-      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share:$COMMIT_SHA'
+      - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/web-app-cmngrd:$COMMIT_SHA'
       - '--region'
       - 'asia-southeast1'
       - '--platform'
@@ -72,8 +72,8 @@ steps:
         firebase -c firebase.prod.json deploy --only hosting --project "$PROJECT_ID" --non-interactive
 
 images:
-  - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share:$COMMIT_SHA'
-  - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/dev-web-cmngrd-share:latest'
+  - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/web-app-cmngrd:$COMMIT_SHA'
+  - 'asia-southeast1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/web-app-cmngrd:latest'
 
 options:
   logging: CLOUD_LOGGING_ONLY

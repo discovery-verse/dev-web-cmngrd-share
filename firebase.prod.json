@@ -7,7 +7,7 @@
     "rules": "storage.rules"
   },
   "hosting": {
-    "site": "dev-web-cmngrd-share",
+    "site": "web-app-cmngrd",
     "public": "public",
     "ignore": ["firebase.json", "firebase.prod.json", "**/.*", "**/node_modules/**"],
     "headers": [
@@ -20,7 +20,7 @@
       {
         "source": "**",
         "run": {
-          "serviceId": "dev-web-cmngrd-share",
+          "serviceId": "web-app-cmngrd",
           "region": "asia-southeast1"
         }
       }

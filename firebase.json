@@ -33,7 +33,7 @@
       {
         "source": "**",
         "run": {
-          "serviceId": "dev-web-cmngrd-share",
+          "serviceId": "web-app-cmngrd",
           "region": "asia-southeast1"
         }
       }
